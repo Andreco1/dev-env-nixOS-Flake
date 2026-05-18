@@ -41,7 +41,6 @@
             
             # Node.js con gestor de paquetes
             nodejs
-            # Los paquetes de node ahora están en el nivel superior
             pnpm
             
             # Bases de datos
@@ -58,9 +57,6 @@
             
             # SSL
             openssl
-            
-            # LibreOffice (comentado por ser pesado)
-            # libreoffice
           ];
 
           shellHook = ''
@@ -85,18 +81,26 @@
                 --datadir="$MYSQL_DATADIR" \
                 --basedir=${pkgs.mariadb} \
                 --auth-root-authentication-method=normal
-              echo "✓ MariaDB inicializado"
+              echo "✅ MariaDB inicializado"
             fi
             
             # === PostgreSQL ===
             export PGDATA="$DATA_DIR/postgres"
             export PGHOST="$DATA_DIR/postgres"
-            export PGDATABASE="devdb"
+            export PGDATABASE="postgres"
+            export PGPORT="5432"
             
             if [ ! -d "$PGDATA" ]; then
-              echo "📦 Inicializando PostgreSQL..."
+              echo "🐘 Inicializando PostgreSQL..."
+              mkdir -p "$PGDATA"
               ${pkgs.postgresql_16}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8
-              echo "✓ PostgreSQL inicializado"
+              
+              # Configurar postgresql.conf para usar el socket local
+              echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
+              echo "listen_addresses = ''''" >> "$PGDATA/postgresql.conf"
+              echo "port = $PGPORT" >> "$PGDATA/postgresql.conf"
+              
+              echo "✅ PostgreSQL inicializado"
             fi
             
             # === Python Virtual Environment ===
@@ -104,7 +108,7 @@
             if [ ! -d "$VENV_DIR" ]; then
               echo "🐍 Creando entorno virtual de Python..."
               ${pythonEnv}/bin/python -m venv "$VENV_DIR"
-              echo "✓ Entorno virtual creado"
+              echo "✅ Entorno virtual creado"
             fi
             
             # Aliases útiles
@@ -112,29 +116,31 @@
             alias stop-mysql="${pkgs.mariadb}/bin/mysqladmin -S $MYSQL_UNIX_PORT shutdown"
             alias mysql="${pkgs.mariadb}/bin/mysql -S $MYSQL_UNIX_PORT"
             
-            alias start-postgres="${pkgs.postgresql_16}/bin/pg_ctl -D $PGDATA -l $DATA_DIR/postgres/logfile start"
+            alias start-postgres="${pkgs.postgresql_16}/bin/pg_ctl -D $PGDATA -l $DATA_DIR/postgres/logfile -o '-k $PGHOST' start"
             alias stop-postgres="${pkgs.postgresql_16}/bin/pg_ctl -D $PGDATA stop"
-            alias psql="${pkgs.postgresql_16}/bin/psql -h $PGHOST"
+            alias psql="${pkgs.postgresql_16}/bin/psql -h $PGHOST -p $PGPORT"
+            alias psql-status="${pkgs.postgresql_16}/bin/pg_ctl -D $PGDATA status"
             
             # Activar venv automáticamente
             source "$VENV_DIR/bin/activate"
             
             echo ""
             echo "📋 Comandos disponibles:"
-            echo "  MariaDB:"
-            echo "    start-mysql  → Iniciar servidor"
-            echo "    stop-mysql   → Detener servidor"
-            echo "    mysql        → Cliente MySQL"
+            echo "  🗄️  MariaDB:"
+            echo "    start-mysql    → Iniciar servidor"
+            echo "    stop-mysql     → Detener servidor"
+            echo "    mysql          → Cliente MySQL"
             echo ""
-            echo "  PostgreSQL:"
+            echo "  🐘 PostgreSQL:"
             echo "    start-postgres → Iniciar servidor"
             echo "    stop-postgres  → Detener servidor"
             echo "    psql           → Cliente PostgreSQL"
+            echo "    psql-status    → Ver estado del servidor"
             echo ""
-            echo "  Python: entorno virtual activado en $VENV_DIR"
-            echo "  Node.js: $(node --version)"
-            echo "  pnpm: $(pnpm --version)"
-            echo "  Datos del proyecto: $DATA_DIR"
+            echo "  🐍 Python: entorno virtual activado en $VENV_DIR"
+            echo "  🟢 Node.js: $(node --version)"
+            echo "  📦 pnpm: $(pnpm --version)"
+            echo "  💾 Datos del proyecto: $DATA_DIR"
             echo ""
           '';
 
